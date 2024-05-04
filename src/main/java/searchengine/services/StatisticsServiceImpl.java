@@ -11,6 +11,7 @@ import searchengine.repositories.LemmaRepository;
 import searchengine.repositories.PageRepository;
 import searchengine.repositories.SiteRepositoty;
 
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
@@ -31,18 +32,17 @@ public class StatisticsServiceImpl implements StatisticsService {
         total.setIndexing(true);
         List<DetailedStatisticsItem> detailed = new ArrayList<>();
 
-        //TODO: test creating hibernate methods
         for(SiteEntity siteEntity : siteEntityList) {
             DetailedStatisticsItem item = new DetailedStatisticsItem();
             item.setName(siteEntity.getName());
             item.setUrl(siteEntity.getUrl());
-            int pages = pageRepository.countBySite(siteEntity);
+            int pages = pageRepository.countBySiteId(siteEntity.getId());
             item.setPages(pages);
-            int lemmas = lemmaRepository.countBySite(siteEntity);
+            int lemmas = lemmaRepository.countBySiteId(siteEntity.getId());
             item.setLemmas(lemmas);
             item.setStatus(siteEntity.getStatus().toString());
             item.setError(siteEntity.getLastError());
-            item.setStatusTime(siteEntity.getStatusTime().toEpochSecond(ZoneOffset.UTC));
+            item.setStatusTime(siteEntity.getStatusTime().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli());
             total.setPages(total.getPages() + pages);
             total.setLemmas(total.getLemmas() + lemmas);
             detailed.add(item);

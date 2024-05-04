@@ -24,7 +24,7 @@ public class PageParser extends RecursiveTask<Set<PageEntity>> {
     private final SiteEntity siteEntity;
     private final SiteRepositoty siteRepositoty;
 
-    private static final AtomicInteger parsePageCount = new AtomicInteger(0);
+    private static AtomicInteger parsePageCount = new AtomicInteger(0);
     private static final Set<String> pageSet = new ConcurrentSkipListSet<>();
 
     public PageParser(SiteEntity siteEntity, String pageUrl, ConnectConfig connectConfig, SiteRepositoty siteRepositoty){
@@ -35,7 +35,7 @@ public class PageParser extends RecursiveTask<Set<PageEntity>> {
     }
 
     @Override
-    protected Set<PageEntity> compute() {
+    public Set<PageEntity> compute() {
         Set<PageEntity> set = new ConcurrentSkipListSet<>();
         if (connectConfig.getMaxPagesCount() != null &&
                 connectConfig.getMaxPagesCount() <= parsePageCount.get()) {
@@ -94,5 +94,9 @@ public class PageParser extends RecursiveTask<Set<PageEntity>> {
         siteEntity.setStatusTime(LocalDateTime.now());
         siteRepositoty.save(siteEntity);
         return set;
+    }
+
+    public static void setParsePageCount(AtomicInteger parsePageCount) {
+        PageParser.parsePageCount = parsePageCount;
     }
 }

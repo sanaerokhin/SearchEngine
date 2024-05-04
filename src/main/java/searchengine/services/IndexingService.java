@@ -13,11 +13,15 @@ import searchengine.repositories.LemmaRepository;
 import searchengine.repositories.PageRepository;
 import searchengine.repositories.SiteRepositoty;
 
+import java.io.UnsupportedEncodingException;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
-//TODO: create logging, multiInserting
+//TODO: create logging
 
 @Service
 @RequiredArgsConstructor
@@ -102,10 +106,11 @@ public class IndexingService {
         siteRepositoty.save(siteEntity);
     }
 
-    //TODO: wrong URL
     public IndexingResponse indexPage(String url) {
+        String decodedUrl = URLDecoder.decode(url.substring(url.indexOf("=") + 1), StandardCharsets.UTF_8);
         IndexingResponse response = new IndexingResponse();
-        String absUrl = url.replaceFirst("(https?://)?(www\\.)?", "").substring(0, url.indexOf("/") + 1);
+        String absUrl = decodedUrl.replaceFirst("(https?://)?(www\\.)?", "");
+        absUrl = absUrl.substring(0, absUrl.indexOf("/"));
         SiteEntity siteEntity = null;
         List<SiteEntity> siteEntityList = siteRepositoty.findAll();
         for (SiteEntity site : siteEntityList) {
@@ -118,7 +123,7 @@ public class IndexingService {
             response.setError("This pageEntity is not located on sites, specified in configuration file");
             return response;
         }
-        PageEntity pageEntity = pageRepository.findByPath(url.replaceFirst("(https?://)?(www\\.)?", ""));
+        PageEntity pageEntity = pageRepository.findByPath(decodedUrl.replaceFirst("(https?://)?(www\\.)?", ""));
         if (pageEntity != null) {
             removeLemmasForPage(pageEntity);
             pageRepository.delete(pageEntity);
@@ -129,8 +134,18 @@ public class IndexingService {
         newConnectConfig.setReferrer(connectConfig.getReferrer());
         newConnectConfig.setSleepTime(connectConfig.getSleepTime());
         newConnectConfig.setUserAgent(connectConfig.getUserAgent());
-        Set<PageEntity> pagesToSave = forkJoinPool.invoke(new PageParser(siteEntity, url, newConnectConfig, siteRepositoty));
+        PageParser pageParser = new PageParser(siteEntity, decodedUrl, newConnectConfig, siteRepositoty);
+        PageParser.setParsePageCount(new AtomicInteger(0));
+        Set<PageEntity> pagesToSave = pageParser.compute();
         pageEntity = pagesToSave.stream().findFirst().get();
+
+        PageEntity oldPageEntity = pageRepository.findByPath(pageEntity.getPath());
+        if (oldPageEntity != null) {
+            oldPageEntity.setCode(pageEntity.getCode());
+            oldPageEntity.setContent(pageEntity.getContent());
+            pageEntity = oldPageEntity;
+        }
+
         pageRepository.save(pageEntity);
         siteRepositoty.save(siteEntity);
         createLemmasForPage(pageEntity);
@@ -140,7 +155,7 @@ public class IndexingService {
     private void createLemmasForPage(PageEntity pageEntity) {
         Map<String, Integer> lemmasMap = lemmatizator.getLemmas(pageEntity.getContent());
         SiteEntity siteEntity = pageEntity.getSite();
-        Set<LemmaEntity> lemmaEntitySet = lemmaRepository.findBySiteEntity(siteEntity);
+        Set<LemmaEntity> lemmaEntitySet = lemmaRepository.findBySite(siteEntity);
         Set<IndexEntity> indexEntitySet = new HashSet<>();
         lemmasMap.forEach((key, value) -> {
             Optional<LemmaEntity> optional = lemmaEntitySet.stream().filter(lemma -> lemma.getLemma().equals(key)).findFirst();
@@ -148,7 +163,7 @@ public class IndexingService {
             LemmaEntity lemmaEntity;
             if (optional.isEmpty()) {
                 lemmaEntity = new LemmaEntity();
-                lemmaEntity.setSiteEntity(siteEntity);
+                lemmaEntity.setSite(siteEntity);
                 lemmaEntity.setFrequency(1);
                 lemmaEntity.setLemma(key);
                 lemmaEntitySet.add(lemmaEntity);
