@@ -68,8 +68,7 @@ public class Lemmatizator {
                         })
                         .forEach(morphInfo -> {
                             String word = Arrays.stream(morphInfo.split("\\|")).findFirst().get();
-                            Integer value = map.get(word);
-                            map.put(word, (value == null ? 0 : value) + 1);
+                            map.compute(word, (k, value) -> (value == null ? 0 : value) + 1);
                         });
             } catch (Exception e) {
                 System.out.println(e.getMessage());
@@ -94,8 +93,7 @@ public class Lemmatizator {
                         })
                         .forEach(morphInfo -> {
                             String word = Arrays.stream(morphInfo.split("\\|")).findFirst().get();
-                            Integer value = map.get(word);
-                            map.put(word, (value == null ? 0 : value) + 1);
+                            map.compute(word, (k, value) -> (value == null ? 0 : value) + 1);
                         });
             } catch (Exception e) {
                 System.out.println(e.getMessage());

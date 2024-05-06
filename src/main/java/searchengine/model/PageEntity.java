@@ -23,7 +23,6 @@ public class PageEntity implements Comparable<PageEntity>{
     @JoinColumn(name = "site_id", nullable = false)
     private SiteEntity site;
 
-    //TODO:indexing path
     @Column(name = "path", nullable = false)
     private String path;
 

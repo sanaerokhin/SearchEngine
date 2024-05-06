@@ -8,7 +8,7 @@ import lombok.Setter;
 @Getter
 @Setter
 @Table(name = "lemma")
-public class LemmaEntity {
+public class LemmaEntity implements Comparable<LemmaEntity> {
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
     @Column(name = "id", nullable = false, columnDefinition = "INT")
@@ -23,4 +23,9 @@ public class LemmaEntity {
 
     @Column(name = "frequency")
     private Integer frequency;
+
+    @Override
+    public int compareTo(LemmaEntity o) {
+        return -this.getFrequency().compareTo(o.getFrequency());
+    }
 }

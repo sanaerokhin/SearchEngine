@@ -5,7 +5,7 @@ import org.springframework.stereotype.Service;
 import searchengine.config.ConnectConfig;
 import searchengine.config.SitesList;
 import searchengine.dto.lemmatisation.Lemmatizator;
-import searchengine.dto.statistics.IndexingResponse;
+import searchengine.response.IndexingResponse;
 import searchengine.dto.parsing.PageParser;
 import searchengine.model.*;
 import searchengine.repositories.IndexRepository;
@@ -13,7 +13,6 @@ import searchengine.repositories.LemmaRepository;
 import searchengine.repositories.PageRepository;
 import searchengine.repositories.SiteRepositoty;
 
-import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;

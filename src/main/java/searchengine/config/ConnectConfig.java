@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component;
 @Getter
 @Setter
 @Component
-@ConfigurationProperties(prefix = "site-connect-settings")
+@ConfigurationProperties(prefix = "connect-settings")
 public class ConnectConfig {
     private Integer sleepTime;
     private String userAgent;
