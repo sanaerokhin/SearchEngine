@@ -2,6 +2,9 @@ package searchengine.services;
 
 import lombok.RequiredArgsConstructor;
 import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.safety.Cleaner;
+import org.jsoup.safety.Safelist;
 import org.springframework.stereotype.Service;
 import searchengine.dto.lemmatisation.Lemmatizator;
 import searchengine.dto.search.SearchPage;
@@ -17,6 +20,7 @@ import searchengine.repositories.SiteRepositoty;
 import searchengine.response.SearchResponse;
 
 import java.util.*;
+import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
@@ -27,39 +31,67 @@ public class SearchService {
     private final LemmaRepository lemmaRepository;
     private final IndexRepository indexRepository;
     private final Lemmatizator lemmatizator;
-    private final static int SNIPPET_LENGTH = 100;
+    private final static int SNIPPET_LENGTH = 200;
+    private String lastQuery = "";
+    private List<SearchPage> lastPageList;
 
     public SearchResponse findAll(SearchQuery searchQuery) {
         SearchResponse searchResponse = new SearchResponse();
         String query = searchQuery.getQuery();
-        String siteUrl = searchQuery.getSite();
         Integer offset = searchQuery.getOffset();
         Integer limit = searchQuery.getLimit();
-
         if (query.isEmpty()) {
             searchResponse.setResult(false);
             searchResponse.setError("Empty search query");
             return searchResponse;
         }
-        List<Map.Entry<PageEntity, Float>> list = calculateRelevance(query, siteUrl);
-        List<SearchPage> pageList = getPagesList(list, siteUrl);
-        searchResponse.setCount(pageList.size());
-        searchResponse.setData(pageList.subList(offset, offset + limit));
+        List<SearchPage> pageList;
+        if (lastQuery.equals(query)) {
+            pageList = lastPageList;
+        } else {
+            List<Map.Entry<PageEntity, Float>> list = calculateRelevance(query, searchQuery.getSite());
+            if (list.isEmpty()) {
+                searchResponse.setResult(false);
+                searchResponse.setError("no matching pages found");
+                return searchResponse;
+            }
+            pageList = getPagesList(list, query);
+            lastPageList = pageList;
+            lastQuery = query;
+        }
+        int listSize = pageList.size();
+        searchResponse.setCount(listSize);
+        if (listSize < offset + limit) {
+            if (listSize < limit) {
+                searchResponse.setData(pageList);
+            } else {
+                searchResponse.setData(pageList.subList(offset, listSize));
+            }
+        } else {
+            searchResponse.setData(pageList.subList(offset, offset + limit));
+        }
         return searchResponse;
     }
 
     private String getSnippet(String pageContent, String query) {
-        int index = getSnippetIndex(pageContent, query);
-        int snippetStart = Math.max(0, index - (SNIPPET_LENGTH / 2));
-        int snippetEnd = Math.min(pageContent.length(), index + query.length() + (SNIPPET_LENGTH / 2));
-        String snippetText = pageContent.substring(snippetStart, snippetEnd);
+        Document dirtyDoc = Jsoup.parse(pageContent);
+        Cleaner cleaner = new Cleaner(new Safelist());
+        Document cleanDoc = cleaner.clean(dirtyDoc);
+        String cleanText = cleanDoc.text();
+        int index = getSnippetIndex(cleanText, query);
+        int snippetStart = Math.max(0, (index - (SNIPPET_LENGTH / 2)));
+        int snippetEnd = Math.min(cleanText.length(), index + query.length() + (SNIPPET_LENGTH / 2));
+        String snippetText = cleanText.substring(snippetStart, snippetEnd);
         if (snippetStart > 0) {
             snippetText = "..." + snippetText;
         }
-        if (snippetEnd < pageContent.length()) {
+        if (snippetEnd < cleanText.length()) {
             snippetText = snippetText + "...";
         }
-        snippetText = snippetText.replaceAll("(?i)" + query, "<b>$0</b>");
+        String[] queryWords = query.strip().split("\\W+");
+        for (String word : queryWords) {
+            snippetText = snippetText.replaceAll("(?i)" + Pattern.quote(word) + "|\\b" + Pattern.quote(word) + "\\w*\\b", "<b>$0</b>");
+        }
         return snippetText;
     }
 
