@@ -1,4 +1,4 @@
-package searchengine.dto.lemmatisation;
+package searchengine.dto.indexing;
 
 import lombok.RequiredArgsConstructor;
 import org.apache.lucene.morphology.LuceneMorphology;
@@ -14,9 +14,9 @@ import java.util.Map;
 @Component
 @RequiredArgsConstructor
 public class Lemmatizator {
-    private LuceneMorphology luceneRusMorph;
-    private LuceneMorphology luceneEnMorph;
-    {
+    private static final LuceneMorphology luceneRusMorph;
+    private static final LuceneMorphology luceneEnMorph;
+    static {
         try {
             luceneRusMorph = new RussianLuceneMorphology();
             luceneEnMorph = new EnglishLuceneMorphology();
@@ -25,28 +25,37 @@ public class Lemmatizator {
         }
     }
 
-    public Map<String, Integer> getLemmas(String text) {
+    public static Map<String, Integer> getLemmas(String text) {
         Map<String, Integer> map = new HashMap<>();
-        String[] clearRusText = text
+        String clearRusText = text
                 .replaceAll("<[^>]*>", "")
                 .replaceAll("[^А-Яа-я\\s\\n]", "")
                 .replaceAll("\\n", " ")
                 .replaceAll("\\b\\w{31,}\\b", "")
                 .replaceAll("\\s+", " ")
                 .strip()
-                .toLowerCase()
-                .split(" ");
-
-        String[] clearEnglishText = text
+                .toLowerCase();
+        String clearEngText = text
                 .replaceAll("<[^>]*>", "")
                 .replaceAll("[^A-Za-z\\s\\n]", "")
                 .replaceAll("\\n", " ")
                 .replaceAll("\\b\\w{31,}\\b", "")
                 .replaceAll("\\s+", " ")
                 .strip()
-                .toLowerCase()
-                .split(" ");
+                .toLowerCase();
+        if (!clearRusText.isBlank()) {
+            String[] rusWords = clearRusText.split(" ");
+            map.putAll(getRusLemmas(rusWords));
+        }
+        if (!clearEngText.isBlank()) {
+            String[] engWords = clearEngText.split(" ");
+            map.putAll(getEngLemmas(engWords));
+        }
+        return map;
+    }
 
+    private static Map<String, Integer> getRusLemmas(String[] clearRusText) {
+        Map<String, Integer> map = new HashMap<>();
         Arrays.stream(clearRusText).forEach(str -> {
             try {
                 luceneRusMorph.getMorphInfo(str)
@@ -54,49 +63,42 @@ public class Lemmatizator {
                         .filter(morphInfo -> {
                             String[] parts = morphInfo.split(" ");
                             String part = parts.length > 1 ? parts[1] : "";
-                            if (
-                                    part.equals("ПРЕДЛ") ||
-                                            part.equals("СОЮЗ") ||
-                                            part.equals("МЕЖД") ||
-                                            part.equals("ЧАСТ") ||
-                                            part.equals("ПРЕДК")
-                            ) {
-                                return false;
-                            } else {
-                                return true;
-                            }
+                            return !part.equals("ПРЕДЛ") &&
+                                    !part.equals("СОЮЗ") &&
+                                    !part.equals("МЕЖД") &&
+                                    !part.equals("ЧАСТ") &&
+                                    !part.equals("ПРЕДК");
                         })
                         .forEach(morphInfo -> {
                             String word = Arrays.stream(morphInfo.split("\\|")).findFirst().get();
                             map.compute(word, (k, value) -> (value == null ? 0 : value) + 1);
                         });
             } catch (Exception e) {
-                System.out.println(e.getMessage());
+                e.printStackTrace();
             }
         });
-        Arrays.stream(clearEnglishText).forEach(str -> {
+        return map;
+    }
+
+    private static Map<String, Integer> getEngLemmas(String[] clearEngText) {
+        Map<String, Integer> map = new HashMap<>();
+        Arrays.stream(clearEngText).forEach(str -> {
             try {
                 luceneEnMorph.getMorphInfo(str)
                         .stream()
                         .filter(morphInfo -> {
                             String[] parts = morphInfo.split(" ");
                             String part = parts.length > 1 ? parts[1] : "";
-                            if (
-                                    part.equals("PREP") ||
-                                            part.equals("VBE") ||
-                                            part.equals("ARTICLE")
-                            ) {
-                                return false;
-                            } else {
-                                return true;
-                            }
+                            return !part.equals("PREP") &&
+                                    !part.equals("VBE") &&
+                                    !part.equals("ARTICLE");
                         })
                         .forEach(morphInfo -> {
                             String word = Arrays.stream(morphInfo.split("\\|")).findFirst().get();
                             map.compute(word, (k, value) -> (value == null ? 0 : value) + 1);
                         });
             } catch (Exception e) {
-                System.out.println(e.getMessage());
+                e.printStackTrace();
             }
         });
         return map;

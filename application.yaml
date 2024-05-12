@@ -10,8 +10,7 @@ spring:
       dialect: org.hibernate.dialect.MySQL8Dialect
       hibernate.jdbc.batch_size: 200
     hibernate.ddl-auto: update
-    show-sql: true
-
+    show-sql: false
 indexing-settings:
   sites:
     - url: https://www.lenta.ru
@@ -21,7 +20,7 @@ indexing-settings:
     - url: https://www.playback.ru
       name: PlayBack.Ru
 connect-settings:
-  sleepTime: 50
+  sleepTime: 0
   userAgent: "Mozilla/5.0 (Windows; U; WindowsNT5.1; en-US; rv1.8.1.6) Gecko/20070725 Firefox/2.0.0.6"
   referrer: "http://www.google.com"
-  maxPagesCount: 5000
+  maxPagesCount: 500

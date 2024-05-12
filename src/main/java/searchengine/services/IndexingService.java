@@ -4,9 +4,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import searchengine.config.ConnectConfig;
 import searchengine.config.SitesList;
-import searchengine.dto.lemmatisation.Lemmatizator;
 import searchengine.response.IndexingResponse;
-import searchengine.dto.parsing.PageParser;
+import searchengine.dto.indexing.PageParser;
 import searchengine.model.*;
 import searchengine.repositories.IndexRepository;
 import searchengine.repositories.LemmaRepository;
@@ -20,8 +19,6 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
-//TODO: create logging
-
 @Service
 @RequiredArgsConstructor
 public class IndexingService {
@@ -32,8 +29,7 @@ public class IndexingService {
     private final IndexRepository indexRepository;
     private final SitesList sitesList;
     private final ConnectConfig connectConfig;
-    private final Lemmatizator lemmatizator;
-    private ForkJoinPool forkJoinPool = new ForkJoinPool();
+    private final ForkJoinPool forkJoinPool = new ForkJoinPool();
 
     public IndexingResponse startIndexing() {
         IndexingResponse response = new IndexingResponse();
@@ -42,30 +38,19 @@ public class IndexingService {
             response.setError("Indexing is running");
             return response;
         }
+        indexRepository.deleteAllInBatch();
+        lemmaRepository.deleteAllInBatch();
+        pageRepository.deleteAllInBatch();
+        siteRepositoty.deleteAllInBatch();
         sitesList.getSites().parallelStream().forEach(site -> forkJoinPool.execute(() -> {
-            try {
-                String siteURL = site.getUrl();
-                if (!siteURL.endsWith("/")) {
-                    siteURL = siteURL.concat("/");
-                }
-                SiteEntity siteEntity = siteRepositoty.findByUrl(siteURL);
-                if (siteEntity != null) {
-                    siteRepositoty.deleteById(siteEntity.getId());
-                }
-                siteEntity = new SiteEntity();
-                siteEntity.setName(site.getName());
-                siteEntity.setUrl(site.getUrl());
-                siteEntity.setStatus(StatusEnum.INDEXING);
-                siteEntity.setStatusTime(LocalDateTime.now());
-                siteRepositoty.save(siteEntity);
-                findAllPages(siteEntity);
-            } catch (Exception e) {
-                System.out.println(e.getMessage());
-                response.setResult(false);
-                response.setError(e.getMessage());
-            }
+            SiteEntity siteEntity = new SiteEntity();
+            siteEntity.setName(site.getName());
+            siteEntity.setUrl(site.getUrl());
+            siteEntity.setStatus(StatusEnum.INDEXING);
+            siteEntity.setStatusTime(LocalDateTime.now());
+            siteRepositoty.save(siteEntity);
+            findAllPages(siteEntity);
         }));
-        forkJoinPool.shutdown();
         return response;
     }
 
@@ -79,27 +64,16 @@ public class IndexingService {
         }
         try {
             forkJoinPool.shutdownNow();
+            Thread.currentThread().interrupt();
         } catch (Exception e) {
-            System.out.println(e.getMessage());
+            System.out.println(e.getMessage() + " Indexing stopped by user");
         }
-
-        stoppedIndexingSites.forEach(siteEntity -> {
-            siteEntity.setStatusTime(LocalDateTime.now());
-            siteEntity.setLastError("Indexing stopped buy user");
-            siteEntity.setStatus(StatusEnum.FAILED);
-        });
-        siteRepositoty.saveAll(stoppedIndexingSites);
         return response;
     }
 
     private void findAllPages(SiteEntity siteEntity) {
-        Set<PageEntity> pagesToSave = forkJoinPool.invoke(new PageParser(siteEntity, siteEntity.getUrl(), connectConfig, siteRepositoty));
-        pageRepository.saveAll(pagesToSave);
-        pagesToSave.forEach(pageEntity -> {
-            forkJoinPool.execute(() -> {
-                createLemmasForPage(pageEntity);
-            });
-        });
+        PageParser pageParser = getPageParser(siteEntity,siteEntity.getUrl());
+        forkJoinPool.invoke(pageParser);
         siteEntity.setStatus(StatusEnum.INDEXED);
         siteEntity.setStatusTime(LocalDateTime.now());
         siteRepositoty.save(siteEntity);
@@ -122,76 +96,29 @@ public class IndexingService {
             response.setError("This pageEntity is not located on sites, specified in configuration file");
             return response;
         }
-        PageEntity pageEntity = pageRepository.findByPath(decodedUrl.replaceFirst("(https?://)?(www\\.)?", ""));
-        if (pageEntity != null) {
-            removeLemmasForPage(pageEntity);
-            pageRepository.delete(pageEntity);
-        }
-
+        PageParser pageParser = getPageParser(siteEntity, decodedUrl);
         ConnectConfig newConnectConfig = new ConnectConfig();
         newConnectConfig.setMaxPagesCount(1);
         newConnectConfig.setReferrer(connectConfig.getReferrer());
         newConnectConfig.setSleepTime(connectConfig.getSleepTime());
         newConnectConfig.setUserAgent(connectConfig.getUserAgent());
-        PageParser pageParser = new PageParser(siteEntity, decodedUrl, newConnectConfig, siteRepositoty);
+        PageParser.setConnectConfig(newConnectConfig);
         PageParser.setParsePageCount(new AtomicInteger(0));
-        Set<PageEntity> pagesToSave = pageParser.compute();
-        pageEntity = pagesToSave.stream().findFirst().get();
-
-        PageEntity oldPageEntity = pageRepository.findByPath(pageEntity.getPath());
-        if (oldPageEntity != null) {
-            oldPageEntity.setCode(pageEntity.getCode());
-            oldPageEntity.setContent(pageEntity.getContent());
-            pageEntity = oldPageEntity;
+        PageEntity pageEntity = pageRepository.findByPath(decodedUrl.replaceFirst("(https?://)?(www\\.)?", "").substring(absUrl.length()));
+        if (pageEntity != null) {
+            pageParser.removeLemmasForPage(pageEntity);
+            pageRepository.delete(pageEntity);
         }
-
-        pageRepository.save(pageEntity);
-        siteRepositoty.save(siteEntity);
-        createLemmasForPage(pageEntity);
+        pageParser.compute();
         return response;
     }
 
-    private void createLemmasForPage(PageEntity pageEntity) {
-        Map<String, Integer> lemmasMap = lemmatizator.getLemmas(pageEntity.getContent());
-        SiteEntity siteEntity = pageEntity.getSite();
-        Set<LemmaEntity> lemmaEntitySet = lemmaRepository.findBySite(siteEntity);
-        Set<IndexEntity> indexEntitySet = new HashSet<>();
-        lemmasMap.forEach((key, value) -> {
-            Optional<LemmaEntity> optional = lemmaEntitySet.stream().filter(lemma -> lemma.getLemma().equals(key)).findFirst();
-            IndexEntity indexEntity = new IndexEntity();
-            LemmaEntity lemmaEntity;
-            if (optional.isEmpty()) {
-                lemmaEntity = new LemmaEntity();
-                lemmaEntity.setSite(siteEntity);
-                lemmaEntity.setFrequency(1);
-                lemmaEntity.setLemma(key);
-                lemmaEntitySet.add(lemmaEntity);
-            } else {
-                lemmaEntity = optional.get();
-                Integer lemmaEntityFrequency = lemmaEntity.getFrequency() + 1;
-                lemmaEntity.setFrequency(lemmaEntityFrequency);
-            }
-            indexEntity.setPageEntity(pageEntity);
-            indexEntity.setLemmaEntity(lemmaEntity);
-            indexEntity.setRank(value.floatValue());
-            indexEntitySet.add(indexEntity);
-        });
-        lemmaRepository.saveAll(lemmaEntitySet);
-        indexRepository.saveAll(indexEntitySet);
-    }
-
-    private void removeLemmasForPage(PageEntity pageEntity) {
-        Set<IndexEntity> indexEntitySet = indexRepository.findByPageEntity(pageEntity);
-        indexEntitySet.forEach(indexEntity -> {
-            LemmaEntity lemmaEntity = indexEntity.getLemmaEntity();
-            int newFrequency = lemmaEntity.getFrequency() - 1;
-            if (newFrequency <= 0) {
-                lemmaRepository.deleteById(lemmaEntity.getId());
-            } else {
-                lemmaEntity.setFrequency(newFrequency);
-                lemmaRepository.save(lemmaEntity);
-            }
-            indexRepository.delete(indexEntity);
-        });
+    private PageParser getPageParser(SiteEntity siteEntity, String decodedUrl) {
+        PageParser.setConnectConfig(connectConfig);
+        PageParser.setSiteRepositoty(siteRepositoty);
+        PageParser.setPageRepository(pageRepository);
+        PageParser.setLemmaRepository(lemmaRepository);
+        PageParser.setIndexRepository(indexRepository);
+        return new PageParser(siteEntity, decodedUrl);
     }
 }

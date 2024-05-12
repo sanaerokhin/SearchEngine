@@ -4,10 +4,6 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-
 @Entity
 @Getter
 @Setter
@@ -31,17 +27,6 @@ public class PageEntity implements Comparable<PageEntity>{
 
     @Column(name = "content", nullable = false, columnDefinition = "MEDIUMTEXT")
     private String content;
-
-//    @OneToMany(mappedBy = "pageEntity", cascade = CascadeType.ALL, orphanRemoval = true)
-//    private Set<IndexEntity> indexEntities = new HashSet<>();
-
-//    public void addIndexEntity(IndexEntity indexEntity) {
-//        indexEntities.add(indexEntity);
-//    }
-//
-//    public void deleteIndexEntity(IndexEntity indexEntity) {
-//        indexEntities.remove(indexEntity);
-//    }
 
     @Override
     public int compareTo(PageEntity o) {

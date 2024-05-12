@@ -5,8 +5,6 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
-import java.util.HashSet;
-import java.util.Set;
 
 @Entity
 @Getter
@@ -34,26 +32,4 @@ public class SiteEntity {
 
     @Column(name = "name", nullable = false, columnDefinition = "VARCHAR(255)")
     private String name;
-
-//    @OneToMany(mappedBy = "site", cascade = CascadeType.ALL, orphanRemoval = true)
-//    private Set<PageEntity> pageEntitySet;
-//
-//    @OneToMany(mappedBy = "site", cascade = CascadeType.ALL, orphanRemoval = true)
-//    private Set<LemmaEntity> lemmaEntitySet = new HashSet<>();
-//
-//    public void deletePage(PageEntity pageEntity) {
-//        pageEntitySet.remove(pageEntity);
-//    }
-//
-//    public void addPage(PageEntity pageEntity) {
-//        pageEntitySet.add(pageEntity);
-//    }
-//
-//    public void deleteLemma(LemmaEntity lemmaEntity) {
-//        lemmaEntitySet.remove(lemmaEntity);
-//    }
-//
-//    public void addLemma(LemmaEntity lemmaEntity) {
-//        lemmaEntitySet.add(lemmaEntity);
-//    }
 }

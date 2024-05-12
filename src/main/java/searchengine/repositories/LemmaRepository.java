@@ -4,12 +4,13 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import searchengine.model.LemmaEntity;
 import searchengine.model.SiteEntity;
 
-import java.util.Set;
+import java.util.Collection;
+import java.util.List;
 
 public interface LemmaRepository extends JpaRepository<LemmaEntity, Integer> {
-    Set<LemmaEntity> findBySite(SiteEntity siteEntity);
-
     int countBySiteId(Integer id);
 
-    Set<LemmaEntity> findByLemma(String lemma);
+    List<LemmaEntity> findByLemma(String lemma);
+
+    List<LemmaEntity> findByLemmaInAndSite(Collection<String> lemmas, SiteEntity siteEntity);
 }
