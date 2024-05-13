@@ -8,7 +8,6 @@ spring:
   jpa:
     properties.hibernate:
       dialect: org.hibernate.dialect.MySQL8Dialect
-      hibernate.jdbc.batch_size: 200
     hibernate.ddl-auto: update
     show-sql: false
 indexing-settings:
@@ -23,4 +22,4 @@ connect-settings:
   sleepTime: 0
   userAgent: "Mozilla/5.0 (Windows; U; WindowsNT5.1; en-US; rv1.8.1.6) Gecko/20070725 Firefox/2.0.0.6"
   referrer: "http://www.google.com"
-  maxPagesCount: 500
+  maxPagesCount: 50

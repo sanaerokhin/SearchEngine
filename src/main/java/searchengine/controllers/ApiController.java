@@ -1,14 +1,13 @@
 package searchengine.controllers;
 
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import searchengine.dto.search.SearchQuery;
 import searchengine.response.IndexingResponse;
 import searchengine.dto.statistics.StatisticsResponse;
 import searchengine.response.SearchResponse;
-import searchengine.services.IndexingService;
-import searchengine.services.SearchService;
+import searchengine.services.IndexingServiceImpl;
+import searchengine.services.SearchServiceImpl;
 import searchengine.services.StatisticsService;
 
 @RestController
@@ -16,10 +15,10 @@ import searchengine.services.StatisticsService;
 public class ApiController {
 
     private final StatisticsService statisticsService;
-    private final IndexingService indexingService;
-    private final SearchService searchService;
+    private final IndexingServiceImpl indexingService;
+    private final SearchServiceImpl searchService;
 
-    public ApiController(StatisticsService statisticsService, IndexingService indexingService, SearchService searchService) {
+    public ApiController(StatisticsService statisticsService, IndexingServiceImpl indexingService, SearchServiceImpl searchService) {
         this.statisticsService = statisticsService;
         this.indexingService = indexingService;
         this.searchService = searchService;

@@ -66,9 +66,7 @@ public class PageParser extends RecursiveTask<Set<PageEntity>> {
             set.add(pageEntity);
             parsePageCount.incrementAndGet();
             taskList.addAll(findTasks(doc));
-        } catch (Exception e) {
-            System.out.println(PageParser.class);
-            System.out.println(e.getMessage());
+        } catch (Exception ignored) {
         }
         for (PageParser task : taskList) {
             set.addAll(task.join());
