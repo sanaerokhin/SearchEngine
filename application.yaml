@@ -2,14 +2,18 @@ server:
   port: 8080
 spring:
   datasource:
-    username: root
-    password: skillbox
-    url: jdbc:mysql://localhost:3306/search_engine?useSSL=false&requireSSL=false&allowPublicKeyRetrieval=true
+    username: search_engine
+    password: search_engine
+    url: jdbc:postgresql://localhost:5432/search_engine
+    driver-class-name: org.postgresql.Driver
   jpa:
-    properties.hibernate:
-      dialect: org.hibernate.dialect.MySQL8Dialect
-    hibernate.ddl-auto: update
+    properties.hibernate.dialect: org.hibernate.dialect.PostgreSQLDialect
+    hibernate.ddl-auto: validate
     show-sql: false
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.xml
+    enabled: true
+    drop-first: false
 indexing-settings:
   sites:
     - url: https://www.lenta.ru

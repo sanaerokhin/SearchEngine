@@ -1,4 +1,4 @@
-package searchengine.services;
+package searchengine.services.impl;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -10,9 +10,9 @@ import searchengine.model.SiteEntity;
 import searchengine.repositories.LemmaRepository;
 import searchengine.repositories.PageRepository;
 import searchengine.repositories.SiteRepositoty;
+import searchengine.services.StatisticsService;
 
 import java.time.ZoneId;
-import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -36,9 +36,9 @@ public class StatisticsServiceImpl implements StatisticsService {
             DetailedStatisticsItem item = new DetailedStatisticsItem();
             item.setName(siteEntity.getName());
             item.setUrl(siteEntity.getUrl());
-            int pages = pageRepository.countBySiteId(siteEntity.getId());
+            Integer pages = pageRepository.countBySiteId(siteEntity.getId());
             item.setPages(pages);
-            int lemmas = lemmaRepository.countBySiteId(siteEntity.getId());
+            Integer lemmas = lemmaRepository.countBySiteId(siteEntity.getId());
             item.setLemmas(lemmas);
             item.setStatus(siteEntity.getStatus().toString());
             item.setError(siteEntity.getLastError());

@@ -11,17 +11,17 @@ import lombok.Setter;
 public class LemmaEntity implements Comparable<LemmaEntity> {
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
-    @Column(name = "id", nullable = false, columnDefinition = "INT")
+    @Column(name = "id", nullable = false, columnDefinition = "INTEGER")
     private Integer id;
 
     @ManyToOne
     @JoinColumn(name = "site_id", nullable = false)
     private SiteEntity site;
 
-    @Column(name = "lemma", nullable = false)
+    @Column(name = "lemma", nullable = false, columnDefinition = "VARCHAR(255)")
     private String lemma;
 
-    @Column(name = "frequency")
+    @Column(name = "frequency", columnDefinition = "INTEGER")
     private Integer frequency;
 
     @Override

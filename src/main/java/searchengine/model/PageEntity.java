@@ -12,20 +12,20 @@ public class PageEntity implements Comparable<PageEntity>{
 
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
-    @Column(name = "id", nullable = false, columnDefinition = "INT")
+    @Column(name = "id", nullable = false, columnDefinition = "INTEGER")
     private Integer id;
 
     @ManyToOne
     @JoinColumn(name = "site_id", nullable = false)
     private SiteEntity site;
 
-    @Column(name = "path", nullable = false)
+    @Column(name = "path", nullable = false, columnDefinition = "VARCHAR(255)")
     private String path;
 
-    @Column(name = "code", nullable = false, columnDefinition = "INT")
+    @Column(name = "code", nullable = false, columnDefinition = "INTEGER")
     private Integer code;
 
-    @Column(name = "content", nullable = false, columnDefinition = "MEDIUMTEXT")
+    @Column(name = "content", nullable = false, columnDefinition = "TEXT")
     private String content;
 
     @Override

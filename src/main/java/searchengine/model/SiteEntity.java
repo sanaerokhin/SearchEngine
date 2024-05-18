@@ -14,14 +14,14 @@ public class SiteEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
-    @Column(name = "id", nullable = false, columnDefinition = "INT")
+    @Column(name = "id", nullable = false, columnDefinition = "INTEGER")
     private Integer id;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false, columnDefinition = "ENUM('INDEXING', 'INDEXED', 'FAILED')")
+    @Column(name = "status", nullable = false, columnDefinition = "VARCHAR(255)")
     private StatusEnum status;
 
-    @Column(name = "status_time", nullable = false, columnDefinition = "DATETIME")
+    @Column(name = "status_time", nullable = false, columnDefinition = "TIMESTAMP")
     private LocalDateTime statusTime;
 
     @Column(name = "last_error", columnDefinition = "TEXT")

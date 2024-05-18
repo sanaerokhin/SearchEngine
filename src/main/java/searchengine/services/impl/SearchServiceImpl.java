@@ -1,4 +1,4 @@
-package searchengine.services;
+package searchengine.services.impl;
 
 import lombok.RequiredArgsConstructor;
 import org.jsoup.Jsoup;
@@ -6,7 +6,9 @@ import org.jsoup.nodes.Document;
 import org.jsoup.safety.Cleaner;
 import org.jsoup.safety.Safelist;
 import org.springframework.stereotype.Service;
-import searchengine.dto.indexing.Lemmatizator;
+import searchengine.exceptions.SearchException;
+import searchengine.services.SearchService;
+import searchengine.utils.Lemmatizator;
 import searchengine.dto.search.SearchPage;
 import searchengine.dto.search.SearchQuery;
 import searchengine.model.IndexEntity;
@@ -17,14 +19,14 @@ import searchengine.repositories.IndexRepository;
 import searchengine.repositories.LemmaRepository;
 import searchengine.repositories.PageRepository;
 import searchengine.repositories.SiteRepositoty;
-import searchengine.response.SearchResponse;
+import searchengine.dto.response.SearchResponse;
 
 import java.util.*;
 import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
-public class SearchServiceImpl implements SearchService{
+public class SearchServiceImpl implements SearchService {
 
     private final SiteRepositoty siteRepositoty;
     private final PageRepository pageRepository;
@@ -34,42 +36,39 @@ public class SearchServiceImpl implements SearchService{
     private String lastQuery = "";
     private List<SearchPage> lastPageList;
 
-    public SearchResponse findAll(SearchQuery searchQuery) {
-        SearchResponse searchResponse = new SearchResponse();
+    @Override
+    public SearchResponse findAll(SearchQuery searchQuery) throws SearchException {
         String query = searchQuery.getQuery();
         Integer offset = searchQuery.getOffset();
         Integer limit = searchQuery.getLimit();
-        if (query.isEmpty()) {
-            searchResponse.setResult(false);
-            searchResponse.setError("Empty search query");
-            return searchResponse;
-        }
         List<SearchPage> pageList;
+        if (query.isEmpty()) {
+            throw new SearchException("Empty search query");
+        }
         if (lastQuery.equals(query)) {
             pageList = lastPageList;
         } else {
-            List<Map.Entry<PageEntity, Float>> list = calculateRelevance(query, searchQuery.getSite());
-            if (list.isEmpty()) {
-                searchResponse.setResult(false);
-                searchResponse.setError("no matching pages found");
-                return searchResponse;
-            }
+            List<IndexEntity> indexEntityList = getIndexEntityList(query, searchQuery.getSite());
+            List<Map.Entry<PageEntity, Float>> list = calculateRelevance(indexEntityList);
             pageList = getPagesList(list, query);
             lastPageList = pageList;
             lastQuery = query;
         }
-        int listSize = pageList.size();
-        searchResponse.setCount(listSize);
-        if (listSize < offset + limit) {
-            if (listSize < limit) {
-                searchResponse.setData(pageList);
-            } else {
-                searchResponse.setData(pageList.subList(offset, listSize));
-            }
-        } else {
-            searchResponse.setData(pageList.subList(offset, offset + limit));
-        }
+        SearchResponse searchResponse = new SearchResponse();
+        searchResponse.setCount(pageList.size());
+        searchResponse.setData(getResponseData(pageList, offset, limit));
         return searchResponse;
+    }
+
+    private List<SearchPage> getResponseData(List<SearchPage> pageList, Integer offset, Integer limit) {
+        int listSize = pageList.size();
+        if (listSize < limit) {
+            return pageList;
+        }
+        if (listSize < offset + limit) {
+            return pageList.subList(offset, listSize);
+        }
+        return pageList.subList(offset, offset + limit);
     }
 
     private String getSnippet(String pageContent, String query) {
@@ -123,7 +122,23 @@ public class SearchServiceImpl implements SearchService{
         return pageList;
     }
 
-    private List<Map.Entry<PageEntity, Float>> calculateRelevance(String query, String siteUrl) {
+    private List<Map.Entry<PageEntity, Float>> calculateRelevance(List<IndexEntity> indexEntityList) throws SearchException {
+        Map<PageEntity, Float> absMap = new HashMap<>();
+        for (IndexEntity indexEntity : indexEntityList) {
+            PageEntity pageEntity = indexEntity.getPageEntity();
+            Float lemmaRank = indexEntity.getRank();
+            absMap.compute(pageEntity, (k, v) -> (v == null ? 0 : v) + lemmaRank);
+        }
+        List<Map.Entry<PageEntity, Float>> list = new LinkedList<>(absMap.entrySet());
+        list.sort(Map.Entry.comparingByValue(Collections.reverseOrder()));
+        absMap.forEach((k,v) -> System.out.println(k.getSite() + k.getPath() + " " + v));
+        if (list.isEmpty()) {
+            throw new SearchException("no matching pages found");
+        }
+        return list;
+    }
+
+    private List<IndexEntity> getIndexEntityList(String query, String siteUrl) {
         List<SiteEntity> siteEntityList = new ArrayList<>();
         if (siteUrl == null) {
             siteEntityList.addAll(siteRepositoty.findAll());
@@ -139,17 +154,9 @@ public class SearchServiceImpl implements SearchService{
                         lemmaEntity.getFrequency() >= pagesCount);
         List<IndexEntity> indexEntityList = new ArrayList<>();
         for (LemmaEntity lemmaEntity : lemmaEntitySet) {
-            indexEntityList.addAll(indexRepository.findByLemmaEntity(lemmaEntity));
+            indexEntityList.addAll(indexRepository.findAllByLemmaEntity(lemmaEntity));
         }
-        Map<PageEntity, Float> absMap = new HashMap<>();
-        for (IndexEntity indexEntity : indexEntityList) {
-            PageEntity pageEntity = indexEntity.getPageEntity();
-            Float lemmaRank = indexEntity.getRank();
-            absMap.compute(pageEntity, (k, v) -> (v == null ? 0 : v) + lemmaRank);
-        }
-        List<Map.Entry<PageEntity, Float>> list = new LinkedList<>(absMap.entrySet());
-        list.sort(Map.Entry.comparingByValue(Collections.reverseOrder()));
-        absMap.forEach((k,v) -> System.out.println(k.getSite() + k.getPath() + " " + v));
-        return list;
+
+        return indexEntityList;
     }
 }

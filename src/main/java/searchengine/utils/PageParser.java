@@ -1,4 +1,4 @@
-package searchengine.dto.indexing;
+package searchengine.utils;
 
 import lombok.Setter;
 import org.jsoup.Connection;
@@ -19,7 +19,6 @@ import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.RecursiveTask;
 import java.util.concurrent.atomic.AtomicInteger;
 
-
 public class PageParser extends RecursiveTask<Set<PageEntity>> {
 
     private final String pageUrl;
@@ -35,13 +34,12 @@ public class PageParser extends RecursiveTask<Set<PageEntity>> {
     private static LemmaRepository lemmaRepository;
     @Setter
     private static IndexRepository indexRepository;
-
+    @Setter
     private static AtomicInteger parsePageCount = new AtomicInteger(0);
-    private static final Set<String> pageSet = new ConcurrentSkipListSet<>();
+    @Setter
+    private static Set<String> pageSet = new ConcurrentSkipListSet<>();
 
-    public PageParser(SiteEntity siteEntity,
-                      String pageUrl
-    ) {
+    public PageParser(SiteEntity siteEntity, String pageUrl) {
         this.pageUrl = pageUrl;
         this.siteEntity = siteEntity;
     }
@@ -49,12 +47,18 @@ public class PageParser extends RecursiveTask<Set<PageEntity>> {
     @Override
     public Set<PageEntity> compute() {
         Set<PageEntity> set = new ConcurrentSkipListSet<>();
-        if ((connectConfig.getMaxPagesCount() <= parsePageCount.get() && connectConfig.getMaxPagesCount() != null)) {
-            return set;
+        if (Thread.currentThread().isInterrupted()) {
+            return interruptedStop();
+        }
+        if ((connectConfig.getMaxPagesCount() != null && parsePageCount.get() >= connectConfig.getMaxPagesCount())) {
+            return new HashSet<>();
         }
         List<PageParser> taskList = new ArrayList<>();
         try {
             Connection.Response response = getResponse(pageUrl);
+            if (Thread.currentThread().isInterrupted()) {
+                return interruptedStop();
+            }
             Document doc = response.parse();
             PageEntity pageEntity = new PageEntity();
             pageEntity.setPath(pageUrl.replaceFirst("https?://(?:www\\.)?[a-zA-Z0-9]+\\.[a-zA-Z]{2,}", ""));
@@ -69,17 +73,13 @@ public class PageParser extends RecursiveTask<Set<PageEntity>> {
         } catch (Exception ignored) {
         }
         for (PageParser task : taskList) {
+            if (Thread.currentThread().isInterrupted()) {
+                return interruptedStop();
+            }
             set.addAll(task.join());
         }
-        if (Thread.currentThread().isInterrupted()) {
-            siteEntity.setStatusTime(LocalDateTime.now());
-            siteEntity.setLastError("Indexing stopped buy user");
-            siteEntity.setStatus(StatusEnum.FAILED);
-            siteRepositoty.save(siteEntity);
-        } else {
-            siteEntity.setStatusTime(LocalDateTime.now());
-            siteRepositoty.save(siteEntity);
-        }
+        siteEntity.setStatusTime(LocalDateTime.now());
+        siteRepositoty.save(siteEntity);
         return set;
     }
 
@@ -94,19 +94,16 @@ public class PageParser extends RecursiveTask<Set<PageEntity>> {
     private List<PageParser> findTasks(Document doc) {
         List<PageParser> taskList = new ArrayList<>();
         for (Element el : doc.select("a[href]")) {
+            if (Thread.currentThread().isInterrupted()) {
+                break;
+            }
             String newPageUrl = el.absUrl("href");
             String str1 = newPageUrl.replaceFirst("www\\.", "");
             String str2 = siteEntity.getUrl().replaceFirst("www\\.", "");
             String str3 = newPageUrl.replaceFirst("https?://(?:www\\.)?[a-zA-Z0-9]+\\.[a-zA-Z]{2,}", "");
-            if (
-                    (str1.startsWith(str2)) &&
-                            (!(newPageUrl.endsWith("#"))) &&
-                            (!(newPageUrl.endsWith(".jpg"))) &&
-                            (!(newPageUrl.endsWith(".pdf"))) &&
-                            (!(str3.isEmpty())) &&
-                            ((str3.length()) <= 255) &&
-                            (!(pageSet.contains(newPageUrl)))
-            ) {
+            if ((str1.startsWith(str2)) && (!(newPageUrl.endsWith("#"))) && (!(newPageUrl.endsWith(".jpg"))) &&
+                    (!(newPageUrl.endsWith(".pdf"))) && (!(str3.isEmpty())) && ((str3.length()) <= 255) &&
+                    (!(pageSet.contains(newPageUrl)))) {
                 pageSet.add(newPageUrl);
                 PageParser task = new PageParser(siteEntity, newPageUrl);
                 task.fork();
@@ -116,17 +113,10 @@ public class PageParser extends RecursiveTask<Set<PageEntity>> {
         return taskList;
     }
 
-
-    public static void setParsePageCount(AtomicInteger parsePageCount) {
-        PageParser.parsePageCount = parsePageCount;
-    }
-
     private void createLemmasForPage(PageEntity pageEntity) {
         Map<String, Integer> lemmasMap = Lemmatizator.getLemmas(pageEntity.getContent());
         SiteEntity siteEntity = pageEntity.getSite();
-        List<LemmaEntity> lemmaEntityList;
-        lemmaEntityList = lemmaRepository.findByLemmaInAndSite(lemmasMap.keySet(), siteEntity);
-
+        List<LemmaEntity> lemmaEntityList = lemmaRepository.findByLemmaInAndSite(lemmasMap.keySet(), siteEntity);
         List<IndexEntity> indexEntitySet = new ArrayList<>();
         lemmasMap.forEach((key, value) -> {
             Optional<LemmaEntity> optional = lemmaEntityList.stream().filter(lemmaEntity -> lemmaEntity.getLemma().equals(key)).findFirst();
@@ -167,5 +157,10 @@ public class PageParser extends RecursiveTask<Set<PageEntity>> {
                 lemmaRepository.save(lemmaEntity);
             }
         });
+    }
+
+    private Set<PageEntity> interruptedStop() {
+        siteEntity.setLastError("Indexing stopped by user");
+        return new HashSet<>();
     }
 }

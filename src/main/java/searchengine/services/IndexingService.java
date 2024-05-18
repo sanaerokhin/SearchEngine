@@ -1,12 +1,13 @@
 package searchengine.services;
 
-import searchengine.response.IndexingResponse;
+import searchengine.dto.response.IndexingResponse;
+import searchengine.exceptions.IndexingException;
 
 public interface IndexingService {
 
-    IndexingResponse startIndexing();
+    IndexingResponse startIndexing() throws IndexingException;
 
-    IndexingResponse stopIndexing();
+    IndexingResponse stopIndexing() throws IndexingException;
 
-    IndexingResponse indexPage(String url);
+    IndexingResponse indexPage(String url) throws IndexingException;
 }

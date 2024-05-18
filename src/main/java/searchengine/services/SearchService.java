@@ -1,9 +1,10 @@
 package searchengine.services;
 
 import searchengine.dto.search.SearchQuery;
-import searchengine.response.SearchResponse;
+import searchengine.dto.response.SearchResponse;
+import searchengine.exceptions.SearchException;
 
 public interface SearchService {
 
-    SearchResponse findAll(SearchQuery searchQuery);
+    SearchResponse findAll(SearchQuery searchQuery) throws SearchException;
 }

@@ -11,7 +11,7 @@ import lombok.Setter;
 public class IndexEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
-    @Column(name = "id", nullable = false, columnDefinition = "INT")
+    @Column(name = "id", nullable = false, columnDefinition = "INTEGER")
     private Integer id;
 
     @ManyToOne
@@ -22,6 +22,6 @@ public class IndexEntity {
     @JoinColumn(name = "lemma_id", nullable = false)
     private LemmaEntity lemmaEntity;
 
-    @Column(name = "`rank`", nullable = false)
+    @Column(name = "`rank`", nullable = false, columnDefinition = "REAL")
     private Float rank;
 }
