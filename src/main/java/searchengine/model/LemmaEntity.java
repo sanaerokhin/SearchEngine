@@ -10,7 +10,7 @@ import lombok.Setter;
 @Table(name = "lemma")
 public class LemmaEntity implements Comparable<LemmaEntity> {
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false, columnDefinition = "INTEGER")
     private Integer id;
 

@@ -1,12 +1,10 @@
-package searchengine;
+package searchengine.exceptions;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import searchengine.dto.response.IndexingResponse;
 import searchengine.dto.response.SearchResponse;
-import searchengine.exceptions.IndexingException;
-import searchengine.exceptions.SearchException;
 
 @ControllerAdvice
 public class GlobalExceptionHandler {

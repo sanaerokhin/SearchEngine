@@ -11,7 +11,7 @@ import lombok.Setter;
 public class PageEntity implements Comparable<PageEntity>{
 
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false, columnDefinition = "INTEGER")
     private Integer id;
 
